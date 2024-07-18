@@ -6,9 +6,10 @@ from model.dnn import DNN
 from dataloader.regression_loader import OscillatoryDataLoader
 import pandas as pd
 import os
+from datetime import datetime
 
 class ModelTrainer:
-    def __init__(self, model, lr=0.9, sigma=0.01, k=1000, gamma=1e-1, max_iterations=1):
+    def __init__(self, model, lr=0.9, sigma=0.01, k=10, gamma=1e-1, max_iterations=1):
         self.model = model
         self.loss_function = nn.MSELoss()
         self.optimiser = EnKF(model, lr, sigma, k, gamma, max_iterations=1, debug_mode=False)
@@ -16,7 +17,7 @@ class ModelTrainer:
     def load_data(self, dataset_loader):
         self.X_train, self.X_val, self.X_test, self.y_train, self.y_val, self.y_test = dataset_loader.get_data()
 
-    def train(self, num_epochs=100, is_plot_graph=1):
+    def train(self, num_epochs=1000, is_plot_graph=1):
         train_losses = []
         val_losses = []
 
@@ -47,6 +48,10 @@ class ModelTrainer:
             outputs = self.model(inputs)
             loss = self.loss_function(outputs, targets)
         return loss.item()
+    
+    def evaluate_test(self):
+        test_loss = self.evaluate(self.X_test, self.y_test)
+        print(f'Test Loss: {test_loss}')
 
     def plot_train_graph(self, train_losses, val_losses):
         # Plot training and validation loss
@@ -64,10 +69,13 @@ class ModelTrainer:
 
     def save_model(self, filename=None):
         if filename is None:
-            filename = f'model_enkf.pth'
+            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f'model_enkf_{current_time}.pth'
         save_path = os.path.join('./saved_models', filename)
         torch.save(self.model, save_path)
         print(f'Complete model saved to {save_path}')
+
+
 
 
 if __name__ == '__main__':
@@ -75,5 +83,5 @@ if __name__ == '__main__':
     model_train = ModelTrainer(model=DNN(input_size=dataset_loader.X.shape[1], output_size=dataset_loader.y.shape[1]))
     model_train.load_data(dataset_loader)
     model_train.train(is_plot_graph=1)
-    model_train.evaluate()
-    model_train.save_model('model_enkf.pth')
+    model_train.evaluate_test()
+    model_train.save_model()
