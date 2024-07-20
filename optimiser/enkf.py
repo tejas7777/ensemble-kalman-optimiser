@@ -7,7 +7,7 @@ Modified to produce forward model on the entire batch
 '''
 
 class EnKF:
-    def __init__(self, model, lr=1e-3, sigma=0.1, k=10, gamma=1e-3, max_iterations=10, debug_mode=False):
+    def __init__(self, model, lr=1e-3, sigma=0.1, k=10, gamma=1e-3, max_iterations=10, debug_mode=False, loss_type='mse'):
         self.model = model
         self.lr = lr
         self.sigma = sigma
@@ -20,6 +20,7 @@ class EnKF:
         self.cumulative_sizes = [0] + list(torch.cumsum(torch.tensor([p.numel() for p in self.parameters]), dim=0))
         self.debug_mode = debug_mode
         self.particles = None
+        self.loss_type = loss_type
 
     '''
     The core optimiser step
@@ -47,9 +48,10 @@ class EnKF:
             current_params_unflattened = self.__unflatten_parameters(self.theta)
             with torch.no_grad():
                 F_current = self.__F(train, current_params_unflattened)
-                
-            Q = torch.zeros(obs.shape[0], self.k)  # [batch_size, k]
 
+            m, c = F_current.size()  # Batch size and number of classes
+            Q = torch.zeros(m, c, self.k)  # [batch_size, num_classes, k]
+                
             for i in range(self.k):
                 perturbed_params = particles[:, i]
                 perturbed_params_unflattened = self.__unflatten_parameters(perturbed_params)
@@ -59,7 +61,7 @@ class EnKF:
                     F_perturbed = self.__F(train, perturbed_params_unflattened)
 
                 # Compute the difference
-                Q[:, i] = F_perturbed.squeeze() - F_current.squeeze()
+                Q[:, :, i] = F_perturbed - F_current
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : forward model evaluation complete")
@@ -67,6 +69,7 @@ class EnKF:
             '''
             Step [3] Now we can construct the Hessian Matrix  Hj = Qj(transpose) x Qj + Γ
             '''
+            Q = Q.view(m * c, self.k)  #Reshape Q to [mc, k]
             H_j = Q.T @ Q + self.gamma * torch.eye(self.k)
             H_inv = torch.inverse(H_j)
 
@@ -76,7 +79,7 @@ class EnKF:
             '''
             Step [4] Calculate the Gradient of loss function with respect to the current parameters
             '''
-            gradient = self.__misfit_gradient(self.theta, train, obs)
+            gradient = self.__misfit_gradient(self.theta, train, obs, loss_type=self.loss_type)
             gradient = gradient.view(-1, 1)  # Ensure it's a column vector
 
             if self.debug_mode:
@@ -156,7 +159,17 @@ class EnKF:
             param.data.copy_(flat_params[idx:idx + num_elements].reshape(param.shape))
             idx += num_elements
 
-    def __misfit_gradient(self,thetha, train, d_obs):
+    
+
+    def __misfit_gradient(self,thetha, train, d_obs, loss_type='mse'):
+        loss_mapper = {
+            'mse': self.__mse_gradient,
+            'cross_entropy': self.__cross_entropy_gradient
+        }
+
+        return loss_mapper[loss_type](thetha, train, d_obs)
+    
+    def __mse_gradient(self,thetha, train, d_obs):
         #Forward pass to get model outputs
         t = self.__F(train, self.__unflatten_parameters(thetha))
         
@@ -164,6 +177,20 @@ class EnKF:
         residuals = t - d_obs
 
         return residuals.view(-1, 1)
+    
+    def __cross_entropy_gradient(self, F, theta, d_obs, delta=1e-10):
+        # Unflatten parameters
+        params_unflattened = self.unflatten_parameters(theta)
+        
+        # Forward pass
+        predictions = F(params_unflattened)
+        num_classes = predictions.shape[1]
+        d_obs = torch.nn.functional.one_hot(d_obs, num_classes=num_classes).float()
+        
+        # Compute gradient of cross-entropy loss with respect to predictions
+        grad = - d_obs / (predictions + delta)
+        
+        return grad.view(-1, 1)
 
 
     def __simple_line_search(self, update, initial_lr,train, obs, reduction_factor=0.5, max_reductions=5):
