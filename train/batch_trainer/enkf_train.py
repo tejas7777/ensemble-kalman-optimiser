@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from optimiser.enkf import EnKF
 from model.dnn import DNN, DenoisingAutoencoder
 from data.dataloader.regression_loader import OscillatoryDataLoader
@@ -70,13 +70,14 @@ class BatchTrainer:
 
     def plot_train_graph(self, train_losses, val_losses):
         # Plot training and validation loss
-        plt.plot(train_losses, label='Train Loss')
-        plt.plot(val_losses, label='Validation Loss')
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
-        plt.yscale('log')
-        plt.legend()
-        plt.show()
+        # plt.plot(train_losses, label='Train Loss')
+        # plt.plot(val_losses, label='Validation Loss')
+        # plt.xlabel('Epochs')
+        # plt.ylabel('Loss')
+        # plt.yscale('log')
+        # plt.legend()
+        # plt.show()
+        pass
 
     def save_model(self, filename=None):
         if filename is None:
@@ -94,6 +95,6 @@ if __name__ == '__main__':
     model =  model_enkf = DNN(input_size=input_size, output_size=output_size)
     model_train = BatchTrainer(model=model)
     model_train.load_data(dataset_loader)
-    model_train.train(num_epochs=1000, is_plot_graph=1)
+    model_train.train(num_epochs=1000, is_plot_graph=0)
     model_train.evaluate_test()
     model_train.save_model()
