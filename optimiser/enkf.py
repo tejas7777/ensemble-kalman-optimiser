@@ -21,6 +21,7 @@ class EnKF:
         self.debug_mode = debug_mode
         self.particles = None
         self.loss_type = loss_type
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     '''
     The core optimiser step
@@ -88,13 +89,14 @@ class EnKF:
             '''
             Step [5] Update the parameters
             '''
-
-            adjustment = H_inv @ Q.T  # Shape [k, m]
-            scaled_adjustment = self.Omega @ adjustment  # Shape [n, m]
-            update = scaled_adjustment @ gradient  # Shape [n, m] x [m, 1] = [n, 1]
+            adjustment = H_inv @ Q.T  #Shape [k, mc]
+            self.Omega = self.Omega.to(self.device)
+            adjustment = adjustment.to(self.device)
+            gradient = gradient.to(self.device)
+            intermediate_result = adjustment @ gradient  # Shape [k, 1]
+            update = self.Omega @ intermediate_result  # Shape [n, 1]
             update = update.view(-1)  # Reshape to [n]
 
-            #lr = self.__simple_line_search(update=update,initial_lr=self.lr,train=train, obs=obs)
             self.theta -= self.lr * update  # Now both are [n]
 
             # Update the actual model parameters
@@ -134,32 +136,47 @@ class EnKF:
     Input: Single Vector
     Output: Parameters retaining the shape
     '''
-    def __unflatten_parameters(self, flat_params):
-        '''
-        Regain the shape to so that we can use them to evaluate the model
-        '''
-        params_list = []
-        start = 0
-        for shape in self.shapes:
-            num_elements = torch.prod(torch.tensor(shape))
-            params_list.append(flat_params[start:start + num_elements].view(shape))
-            start += num_elements
-        return params_list
+    # def __unflatten_parameters(self, flat_params):
+    #     '''
+    #     Regain the shape to so that we can use them to evaluate the model
+    #     '''
+    #     params_list = []
+    #     start = 0
+    #     for shape in self.shapes:
+    #         num_elements = torch.prod(torch.tensor(shape))
+    #         params_list.append(flat_params[start:start + num_elements].view(shape))
+    #         start += num_elements
+    #     return params_list
 
     '''
     Utitlity Method
     Input: Single Vector
     Output: Parameters retaining the shape
     '''
+    # def __update_model_parameters(self, flat_params):
+    #     idx = 0
+    #     for param in self.model.parameters():
+    #         #param.grad = None
+    #         num_elements = param.numel()
+    #         param.data.copy_(flat_params[idx:idx + num_elements].reshape(param.shape))
+    #         idx += num_elements
+
+    def __unflatten_parameters(self, flat_params):
+        params_list = []
+        start = 0
+        for shape in self.shapes:
+            num_elements = torch.prod(torch.tensor(shape)).item()
+            print(f"Unflattening {num_elements} elements into shape {shape}")
+            params_list.append(flat_params[start:start + num_elements].view(shape))
+            start += num_elements
+        return params_list
+
     def __update_model_parameters(self, flat_params):
         idx = 0
         for param in self.model.parameters():
-            #param.grad = None
             num_elements = param.numel()
-            param.data.copy_(flat_params[idx:idx + num_elements].reshape(param.shape))
+            param.data.copy_(flat_params[idx:idx + num_elements].view(param.shape))
             idx += num_elements
-
-    
 
     def __misfit_gradient(self,thetha, train, d_obs, loss_type='mse'):
         loss_mapper = {
@@ -180,7 +197,7 @@ class EnKF:
     
     def __cross_entropy_gradient(self, F, theta, d_obs, delta=1e-10):
         # Unflatten parameters
-        params_unflattened = self.unflatten_parameters(theta)
+        params_unflattened = self.__unflatten_parameters(theta)
         
         # Forward pass
         predictions = F(params_unflattened)

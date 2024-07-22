@@ -15,4 +15,34 @@ class DNN(nn.Module):
         x = self.relu(x)
         x = self.fc3(x)
         return x
-    
+
+class DenoisingAutoencoder(nn.Module):
+    def __init__(self, channels=1, latent_dim=128):
+        super(DenoisingAutoencoder, self).__init__()
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Conv2d(channels, 32, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(128, latent_dim, kernel_size=3, padding=1),
+            nn.ReLU(True)
+        )
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.Conv2d(latent_dim, 128, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(128, 64, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(32, channels, kernel_size=3, padding=1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x

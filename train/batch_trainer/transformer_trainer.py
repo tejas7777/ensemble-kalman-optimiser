@@ -2,29 +2,25 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from optimiser.enkf import EnKF
-from model.dnn import DNN
-from data.dataloader.regression_loader import OscillatoryDataLoader
-import pandas as pd
+from data.dataloader.IMDb_data_loader import IMDBDataLoader
 import os
 from datetime import datetime
+from model.transformer import Transformer
 
-
-
-
-class BatchTrainer:
-    def __init__(self, model, lr=0.1, sigma=0.01, k=100, gamma=1e-1, max_iterations=1, loss_type='mse'):
+class TransformerTrainer:
+    def __init__(self, model, lr=0.1, sigma=0.01, k=50, gamma=1e-1, max_iterations=1, loss_type='cross_entropy'):
         self.model = model
-        self.loss_function_mapper ={
+        self.loss_function_mapper = {
             'mse': nn.MSELoss(),
             'cross_entropy': nn.CrossEntropyLoss()
         }
         self.loss_function = self.loss_function_mapper[loss_type]
-        self.optimiser = EnKF(model, lr, sigma, k, gamma, max_iterations=max_iterations, debug_mode=False,loss_type=loss_type)
+        self.optimiser = EnKF(model, lr, sigma, k, gamma, max_iterations=max_iterations, debug_mode=False, loss_type=loss_type)
 
     def load_data(self, dataset_loader):
         self.train_loader, self.val_loader, self.test_loader = dataset_loader.get_loaders()
 
-    def train(self, num_epochs=100, is_plot_graph=1):
+    def train(self, num_epochs=20, is_plot_graph=1):
         train_losses = []
         val_losses = []
 
@@ -48,9 +44,9 @@ class BatchTrainer:
         self.model.train()
         total_loss = 0.0
         for batch in self.train_loader:
-            train, obs = batch
-            self.optimiser.step(train=train, obs=obs)
-            total_loss += self.evaluate_single_batch(train, obs)
+            inputs, targets = batch
+            self.optimiser.step(train=inputs, obs=targets)
+            total_loss += self.evaluate_single_batch(inputs, targets)
         return total_loss / len(self.train_loader)
 
     def evaluate(self, data_loader):
@@ -89,9 +85,17 @@ class BatchTrainer:
         print(f'Complete model saved to {save_path}')
 
 if __name__ == '__main__':
-    dataset_loader = OscillatoryDataLoader(test_size=0.3, val_size=0.3, batch_size=1000)
-    model_train = BatchTrainer(model=DNN(input_size=dataset_loader.train_dataset.X.shape[1], output_size=dataset_loader.train_dataset.y.shape[1]))
+    dataset_loader = IMDBDataLoader(batch_size=100, val_size=0.2, max_vocab_size=5)
+    vocab_size = len(dataset_loader.vocab)
+    embed_dim = 4
+    num_heads = 2
+    num_layers = 1
+    num_classes = 2
+
+    model = Transformer(vocab_size=vocab_size, embed_dim=embed_dim, num_heads=num_heads, num_layers=num_layers, num_classes=num_classes)
+    
+    model_train = TransformerTrainer(model=model, lr=0.1, sigma=0.01, k=10, gamma=1e-1, max_iterations=1, loss_type='cross_entropy')
     model_train.load_data(dataset_loader)
-    model_train.train(num_epochs=1000, is_plot_graph=1)
+    model_train.train(num_epochs=10, is_plot_graph=1)
     model_train.evaluate_test()
     model_train.save_model()

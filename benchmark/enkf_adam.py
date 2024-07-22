@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from optimiser.enkf import EnKF
 from model.dnn import DNN
 from data.dataloader.regression_loader import OscillatoryDataLoader
-from train.batch_trainer.regression import BatchTrainer as EnKFTrainer
+from train.batch_trainer.enkf_train import BatchTrainer as EnKFTrainer
 from adam_train.batch_trainer.regression import BatchTrainer as AdamTrainer
 import os
 from datetime import datetime
@@ -23,7 +23,6 @@ if __name__ == '__main__':
 
     # Define the models
     model_enkf = DNN(input_size=input_size, output_size=output_size)
-    model_adam = DNN(input_size=input_size, output_size=output_size)
 
     # Benchmark EnKFTrainer
     enkf_train_loss, enkf_val_loss = benchmark(
