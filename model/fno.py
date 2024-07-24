@@ -26,7 +26,7 @@ class FNO(nn.Module):
         self.conv3 = nn.Conv1d(width, width, 1)
         self.conv4 = nn.Conv1d(width, width, 1)
         self.fourier_layer = FourierLayer(width, width, modes)
-        self.conv2 = nn.Conv1d(width, out_channels, 1)
+        self.conv5 = nn.Conv1d(width, out_channels, 1)
 
     def forward(self, x):
         x = x.unsqueeze(1)  # [batch_size, 1, 4260]
@@ -36,5 +36,5 @@ class FNO(nn.Module):
         x = self.conv4(x)   # [batch_size, width, 4260]
         x = self.fourier_layer(x)  # [batch_size, width, 4260]
         x = torch.relu(x)
-        x = self.conv2(x)   # [batch_size, out_channels, 4260]
+        x = self.conv5(x)   # [batch_size, out_channels, 4260]
         return x
