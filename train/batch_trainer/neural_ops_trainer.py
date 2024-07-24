@@ -97,11 +97,11 @@ if __name__ == '__main__':
 
     in_channels = 4260  # Input shape based on your data
     out_channels = 14  # Output shape based on your data
-    modes = 5
-    width = 4
+    modes = 50
+    width = 40
 
     model = FNO(in_channels, out_channels, modes, width)
-    model_trainer = ModelTrainer(model=model, lr=1, max_iterations=1, loss_type='mse', debug_mode=False)
+    model_trainer = ModelTrainer(model=model, lr=0.01, max_iterations=1, loss_type='mse', debug_mode=False)
     model_trainer.load_data(pde_data_loader)
     model_trainer.train(num_epochs=200, is_plot_graph=1)
     model_trainer.evaluate_test()
