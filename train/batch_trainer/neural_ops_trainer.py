@@ -1,10 +1,12 @@
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from optimiser.enkf import EnKF
 from datetime import datetime
 import os
 from typing import Optional
+from data.dataloader.pde_loader import PDEDataLoader
+from model.fno import FNO
 
 class ModelTrainer:
     def __init__(self, model, lr: float = 0.1, sigma: float = 0.01, k: int = 100, gamma: float = 0.1, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse'):
