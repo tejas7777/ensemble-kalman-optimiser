@@ -10,7 +10,7 @@ from model.fno import FNO
 import matplotlib.pyplot as plt
 
 class ModelTrainer:
-    def __init__(self, model, lr: float = 0.1, sigma: float = 0.01, k: int = 20, gamma: float = 0.1, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse', debug_mode = True):
+    def __init__(self, model, lr: float = 0.1, sigma: float = 0.01, k: int = 50, gamma: float = 0.1, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse', debug_mode = True):
         self.model = model
         self.loss_function_mapper = {
             'mse': nn.MSELoss(),
