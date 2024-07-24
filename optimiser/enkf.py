@@ -27,84 +27,142 @@ class EnKF:
     The core optimiser step
     Input: Observations
     '''
+    # def step(self, train, obs):
+    #     for iteration in range(self.max_iterations):
+
+    #         if self.debug_mode:
+    #             print(f"iteration {iteration + 1} / {self.max_iterations} : Started")
+
+    #         '''
+    #         Step [1] We will Draw K Particles
+    #         '''
+    #         self.Omega = torch.randn((self.theta.numel(), self.k)) * self.sigma  # Draw particles
+    #         particles = self.theta.unsqueeze(1) + self.Omega  # Add the noise to the current parameter estimate
+    #         self.particles = particles #This is for retieving
+
+    #         if self.debug_mode:
+    #             print(f"iteration {iteration + 1} / {self.max_iterations} : Drawing {self.k} Particles completed")
+
+    #         '''
+    #         Step [2] Now we Evaluate the forward model using theta mean
+    #         '''
+    #         current_params_unflattened = self.__unflatten_parameters(self.theta)
+    #         with torch.no_grad():
+    #             F_current = self.__F(train, current_params_unflattened)
+
+    #         m, c = F_current.size()  # Batch size and number of classes
+    #         Q = torch.zeros(m, c, self.k)  # [batch_size, num_classes, k]
+                
+    #         for i in range(self.k):
+    #             perturbed_params = particles[:, i]
+    #             perturbed_params_unflattened = self.__unflatten_parameters(perturbed_params)
+
+    #             # Evaluate the forward model on the perturbed parameters
+    #             with torch.no_grad():
+    #                 F_perturbed = self.__F(train, perturbed_params_unflattened)
+
+    #             # Compute the difference
+    #             Q[:, :, i] = F_perturbed - F_current
+
+    #         if self.debug_mode:
+    #             print(f"iteration {iteration + 1} / {self.max_iterations} : forward model evaluation complete")
+
+    #         '''
+    #         Step [3] Now we can construct the Hessian Matrix  Hj = Qj(transpose) x Qj + Γ
+    #         '''
+    #         Q = Q.view(m * c, self.k)  #Reshape Q to [mc, k]
+    #         H_j = Q.T @ Q + self.gamma * torch.eye(self.k)
+    #         H_inv = torch.inverse(H_j)
+
+    #         if self.debug_mode:
+    #             print(f"iteration {iteration + 1} / {self.max_iterations} : Hj and Hj inverse completed")
+
+    #         '''
+    #         Step [4] Calculate the Gradient of loss function with respect to the current parameters
+    #         '''
+    #         gradient = self.__misfit_gradient(self.theta, train, obs, loss_type=self.loss_type)
+    #         gradient = gradient.view(-1, 1)  # Ensure it's a column vector
+
+    #         if self.debug_mode:
+    #             print(f"iteration {iteration + 1} / {self.max_iterations} : gradient calculation completed")
+
+    #         '''
+    #         Step [5] Update the parameters
+    #         '''
+    #         adjustment = H_inv @ Q.T  #Shape [k, mc]
+    #         self.Omega = self.Omega.to(self.device)
+    #         adjustment = adjustment.to(self.device)
+    #         gradient = gradient.to(self.device)
+    #         intermediate_result = adjustment @ gradient  # Shape [k, 1]
+    #         update = self.Omega @ intermediate_result  # Shape [n, 1]
+    #         update = update.view(-1)  # Reshape to [n]
+
+    #         self.theta -= self.lr * update  # Now both are [n]
+
+    #         # Update the actual model parameters
+    #         self.__update_model_parameters(self.theta)
+
+    #         if self.debug_mode:
+    #             print(f"iteration {iteration + 1} / {self.max_iterations} : parameter update completed")
+               
     def step(self, train, obs):
         for iteration in range(self.max_iterations):
-
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : Started")
 
-            '''
-            Step [1] We will Draw K Particles
-            '''
-            self.Omega = torch.randn((self.theta.numel(), self.k)) * self.sigma  # Draw particles
-            particles = self.theta.unsqueeze(1) + self.Omega  # Add the noise to the current parameter estimate
-            self.particles = particles #This is for retieving
+            self.Omega = torch.randn((self.theta.numel(), self.k)) * self.sigma
+            particles = self.theta.unsqueeze(1) + self.Omega
+            self.particles = particles
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : Drawing {self.k} Particles completed")
 
-            '''
-            Step [2] Now we Evaluate the forward model using theta mean
-            '''
             current_params_unflattened = self.__unflatten_parameters(self.theta)
             with torch.no_grad():
                 F_current = self.__F(train, current_params_unflattened)
 
-            m, c = F_current.size()  # Batch size and number of classes
-            Q = torch.zeros(m, c, self.k)  # [batch_size, num_classes, k]
-                
+            m, c, d = F_current.size()  # Batch size, number of classes, sequence length
+            Q = torch.zeros(m, c, d, self.k)  # [batch_size, num_classes, seq_len, k]
+
             for i in range(self.k):
                 perturbed_params = particles[:, i]
                 perturbed_params_unflattened = self.__unflatten_parameters(perturbed_params)
 
-                # Evaluate the forward model on the perturbed parameters
                 with torch.no_grad():
                     F_perturbed = self.__F(train, perturbed_params_unflattened)
 
-                # Compute the difference
-                Q[:, :, i] = F_perturbed - F_current
+                Q[:, :, :, i] = F_perturbed - F_current
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : forward model evaluation complete")
 
-            '''
-            Step [3] Now we can construct the Hessian Matrix  Hj = Qj(transpose) x Qj + Γ
-            '''
-            Q = Q.view(m * c, self.k)  #Reshape Q to [mc, k]
+            Q = Q.view(m * c * d, self.k)  # Reshape Q to [mcd, k]
             H_j = Q.T @ Q + self.gamma * torch.eye(self.k)
             H_inv = torch.inverse(H_j)
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : Hj and Hj inverse completed")
 
-            '''
-            Step [4] Calculate the Gradient of loss function with respect to the current parameters
-            '''
             gradient = self.__misfit_gradient(self.theta, train, obs, loss_type=self.loss_type)
-            gradient = gradient.view(-1, 1)  # Ensure it's a column vector
+            gradient = gradient.view(-1, 1)
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : gradient calculation completed")
 
-            '''
-            Step [5] Update the parameters
-            '''
-            adjustment = H_inv @ Q.T  #Shape [k, mc]
+            adjustment = H_inv @ Q.T
             self.Omega = self.Omega.to(self.device)
             adjustment = adjustment.to(self.device)
             gradient = gradient.to(self.device)
-            intermediate_result = adjustment @ gradient  # Shape [k, 1]
-            update = self.Omega @ intermediate_result  # Shape [n, 1]
-            update = update.view(-1)  # Reshape to [n]
+            intermediate_result = adjustment @ gradient
+            update = self.Omega @ intermediate_result
+            update = update.view(-1)
 
-            self.theta -= self.lr * update  # Now both are [n]
+            self.theta -= self.lr * update
 
-            # Update the actual model parameters
             self.__update_model_parameters(self.theta)
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : parameter update completed")
-               
 
         '''
     Forward Model
