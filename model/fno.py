@@ -27,6 +27,9 @@ class FNO(nn.Module):
 
     def forward(self, x):
         x = x.unsqueeze(1)  # [batch_size, 1, 4260]
+        x = self.conv1(x)
+        x = self.conv1(x)
+        x = self.conv1(x)
         x = self.conv1(x)   # [batch_size, width, 4260]
         x = self.fourier_layer(x)  # [batch_size, width, 4260]
         x = torch.relu(x)
