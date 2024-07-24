@@ -10,7 +10,7 @@ from model.fno import FNO
 import matplotlib.pyplot as plt
 
 class ModelTrainer:
-    def __init__(self, model, lr: float = 0.1, sigma: float = 0.01, k: int = 50, gamma: float = 0.1, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse', debug_mode = True):
+    def __init__(self, model, lr: float = 0.1, sigma: float = 0.1, k: int = 50, gamma: float = 0.01, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse', debug_mode = True):
         self.model = model
         self.loss_function_mapper = {
             'mse': nn.MSELoss(),
@@ -97,11 +97,11 @@ if __name__ == '__main__':
 
     in_channels = 4260  # Input shape based on your data
     out_channels = 14  # Output shape based on your data
-    modes = 20
-    width = 18
+    modes = 5
+    width = 4
 
     model = FNO(in_channels, out_channels, modes, width)
-    model_trainer = ModelTrainer(model=model, lr=0.01, max_iterations=1, loss_type='mse', debug_mode=False)
+    model_trainer = ModelTrainer(model=model, lr=0.001, max_iterations=1, loss_type='mse', debug_mode=False)
     model_trainer.load_data(pde_data_loader)
     model_trainer.train(num_epochs=200, is_plot_graph=1)
     model_trainer.evaluate_test()
