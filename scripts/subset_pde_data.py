@@ -10,7 +10,7 @@ inputs = data['Input'][()]
 outputs = data['Output'][()]
 
 # Specify the subset size
-subset_size = 10
+subset_size = 1000
 
 # Create a small subset
 input_subset = inputs[:subset_size]
@@ -25,7 +25,7 @@ print('Input tensor shape:', input_tensor.shape)
 print('Output tensor shape:', output_tensor.shape)
 
 # Save tensors to a new file
-torch.save({'input': input_tensor, 'output': output_tensor}, './dataset/pde_data_subset_small.pt')
+torch.save({'input': input_tensor, 'output': output_tensor}, './dataset/pde_data_subset.pt')
 
 # Close the HDF5 file
 data.close()
