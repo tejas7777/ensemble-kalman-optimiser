@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     in_channels = 4260  # Input shape based on your data
     out_channels = 14  # Output shape based on your data
-    modes = 15
+    modes = 25
     width = 200
 
     model = FNO(in_channels, out_channels, modes, width)
