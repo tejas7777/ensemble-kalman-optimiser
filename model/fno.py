@@ -60,15 +60,18 @@ class FourierLayer(nn.Module):
 class FNO(nn.Module):
     def __init__(self, in_channels, out_channels, modes, width):
         super(FNO, self).__init__()
-        self.fourier_layer = FourierLayer(in_channels, in_channels, modes)
-        self.conv1 = nn.Conv1d(in_channels, width, 1)  # Adjusted input channels
-        self.conv2 = nn.Conv1d(width, out_channels, 1)  # Reduced to one convolution layer
+        self.fourier_layer = FourierLayer(1, in_channels, modes)
+        self.conv1 = nn.Conv1d(1, width, 1)  # Adjusted for single-channel input
+        self.conv2 = nn.Conv1d(width, width, 1)
+        self.conv3 = nn.Conv1d(width, out_channels, 1)
 
     def forward(self, x):
-        x = x.permute(0, 2, 1)  # Change shape from [batch_size, 4260] to [batch_size, 4260, in_channels]
+        x = x.unsqueeze(1)  # Change input from [batch_size, 4260] to [batch_size, 1, 4260]
         x = self.conv1(x)
         x = self.fourier_layer(x)
         x = torch.relu(x)
         x = self.conv2(x)
-        x = x.permute(0, 2, 1)  # Change shape back to [batch_size, 4260, out_channels]
+        x = torch.relu(x)
+        x = self.conv3(x)
+        x = x.squeeze(1)  # Change shape back to [batch_size, 4260, out_channels]
         return x
