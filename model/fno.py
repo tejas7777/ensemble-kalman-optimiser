@@ -52,18 +52,17 @@ class FourierLayer(nn.Module):
     def forward(self, x):
         batch_size = x.shape[0]
         x_ft = torch.fft.rfft(x, dim=-1, norm="ortho")
-        out_ft = torch.zeros_like(x_ft, dtype=torch.cfloat)
-        out_ft[:, :, :self.modes] = x_ft[:, :, :self.modes] @ self.weights
+        out_ft = torch.zeros((batch_size, self.out_channels, x_ft.size(-1)), dtype=torch.cfloat, device=x.device)
+        out_ft[:, :, :self.modes] = torch.einsum('bix,iox->box', x_ft[:, :, :self.modes], self.weights)
         x = torch.fft.irfft(out_ft, n=x.size(-1), dim=-1, norm="ortho")
         return x
 
 class FNO(nn.Module):
     def __init__(self, in_channels, out_channels, modes, width):
         super(FNO, self).__init__()
-        self.fourier_layer = FourierLayer(1, in_channels, modes)
-        self.conv1 = nn.Conv1d(1, width, 1)  # Adjusted for single-channel input
-        self.conv2 = nn.Conv1d(width, width, 1)
-        self.conv3 = nn.Conv1d(width, out_channels, 1)
+        self.conv1 = nn.Conv1d(in_channels, width, 1)
+        self.fourier_layer = FourierLayer(width, width, modes)
+        self.conv2 = nn.Conv1d(width, out_channels, 1)
 
     def forward(self, x):
         x = x.unsqueeze(1)  # Change input from [batch_size, 4260] to [batch_size, 1, 4260]
@@ -71,7 +70,5 @@ class FNO(nn.Module):
         x = self.fourier_layer(x)
         x = torch.relu(x)
         x = self.conv2(x)
-        x = torch.relu(x)
-        x = self.conv3(x)
         x = x.squeeze(1)  # Change shape back to [batch_size, 4260, out_channels]
         return x
