@@ -4,6 +4,7 @@ import copy
 '''
 Inspired by the EKI algorithm provided in Haber et al, (https://arxiv.org/abs/1805.08034).
 Modified to produce forward model on the entire batch
+New Change
 '''
 
 class EnKF:
