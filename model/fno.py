@@ -23,8 +23,8 @@ class FNO(nn.Module):
         super(FNO, self).__init__()
         self.conv1 = nn.Conv1d(1, width, 1)
         self.conv2 = nn.Conv1d(width, width, 1)
-        self.conv3 = nn.Conv1d(width, width, 1)
-        self.conv4 = nn.Conv1d(width, width, 1)
+        # self.conv3 = nn.Conv1d(width, width, 1)
+        # self.conv4 = nn.Conv1d(width, width, 1)
         self.fourier_layer = FourierLayer(width, width, modes)
         self.conv5 = nn.Conv1d(width, out_channels, 1)
 
@@ -32,8 +32,8 @@ class FNO(nn.Module):
         x = x.unsqueeze(1)  # [batch_size, 1, 4260]
         x = self.conv1(x)
         x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)   # [batch_size, width, 4260]
+        # x = self.conv3(x)
+        # x = self.conv4(x)   # [batch_size, width, 4260]
         x = self.fourier_layer(x)  # [batch_size, width, 4260]
         x = torch.relu(x)
         x = self.conv5(x)   # [batch_size, out_channels, 4260]
