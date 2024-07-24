@@ -89,16 +89,16 @@ class ModelTrainer:
 if __name__ == '__main__':
 
     file_path = './dataset/pde_data_subset.pt'  # Update the path as needed
-    subset_size = 100  # Example subset size
-    batch_size = 32  # Example batch size
+    subset_size = 1000  # Example subset size
+    batch_size = 1000  # Example batch size
 
     pde_data_loader = PDEDataLoader(file_path, subset_size=subset_size, batch_size=batch_size)
     train_loader, val_loader, test_loader = pde_data_loader.get_loaders()
 
     in_channels = 4260  # Input shape based on your data
     out_channels = 14  # Output shape based on your data
-    modes = 12
-    width = 20
+    modes = 100
+    width = 200
 
     model = FNO(in_channels, out_channels, modes, width)
     model_trainer = ModelTrainer(model=model, lr=0.001, max_iterations=1, loss_type='mse', debug_mode=False)
