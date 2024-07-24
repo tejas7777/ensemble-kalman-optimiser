@@ -22,6 +22,9 @@ class FNO(nn.Module):
     def __init__(self, in_channels, out_channels, modes, width):
         super(FNO, self).__init__()
         self.conv1 = nn.Conv1d(1, width, 1)
+        self.conv2 = nn.Conv1d(width, width, 1)
+        self.conv3 = nn.Conv1d(width, width, 1)
+        self.conv4 = nn.Conv1d(width, width, 1)
         self.fourier_layer = FourierLayer(width, width, modes)
         self.conv2 = nn.Conv1d(width, out_channels, 1)
 
