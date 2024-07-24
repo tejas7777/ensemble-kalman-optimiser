@@ -10,14 +10,14 @@ from model.fno import FNO
 import matplotlib as plt
 
 class ModelTrainer:
-    def __init__(self, model, lr: float = 0.1, sigma: float = 0.01, k: int = 100, gamma: float = 0.1, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse'):
+    def __init__(self, model, lr: float = 0.1, sigma: float = 0.01, k: int = 100, gamma: float = 0.1, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse', debug_mode = True):
         self.model = model
         self.loss_function_mapper = {
             'mse': nn.MSELoss(),
             'cross_entropy': nn.CrossEntropyLoss()
         }
         self.loss_function = self.loss_function_mapper[loss_type]
-        self.optimiser = EnKF(model, lr, sigma, k, gamma, max_iterations=max_iterations, debug_mode=False, loss_type=loss_type)
+        self.optimiser = EnKF(model, lr, sigma, k, gamma, max_iterations=max_iterations, debug_mode=debug_mode, loss_type=loss_type)
 
     def load_data(self, dataset_loader):
         self.train_loader, self.val_loader, self.test_loader = dataset_loader.get_loaders()
