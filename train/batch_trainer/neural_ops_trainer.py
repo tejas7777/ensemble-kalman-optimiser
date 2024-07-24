@@ -101,7 +101,7 @@ if __name__ == '__main__':
     width = 20
 
     model = FNO(in_channels, out_channels, modes, width)
-    model_trainer = ModelTrainer(model=model, lr=0.001, max_iterations=1, loss_type='mse', debug_mode=True)
+    model_trainer = ModelTrainer(model=model, lr=0.001, max_iterations=1, loss_type='mse', debug_mode=False)
     model_trainer.load_data(pde_data_loader)
     model_trainer.train(num_epochs=20, is_plot_graph=1)
     model_trainer.evaluate_test()
