@@ -1,16 +1,16 @@
 import torch
 import torch.nn as nn
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from optimiser.enkf import EnKF
 from model.dnn import DNN, DenoisingAutoencoder
 from data.dataloader.regression_loader import OscillatoryDataLoader
-from data.dataloader.mnist_loader import MNISTDataLoader
 import pandas as pd
 import os
 from datetime import datetime
+from typing import Optional
 
 class BatchTrainer:
-    def __init__(self, model, lr=0.1, sigma=0.01, k=100, gamma=1e-1, max_iterations=1, loss_type='mse'):
+    def __init__(self, model, lr:float =0.1, sigma:float =0.01, k:int =100, gamma: float=1e-1, max_iterations: Optional[int]=1, loss_type: Optional[str]='mse', online_learning:Optional[bool] = False):
         self.model = model
         self.loss_function_mapper ={
             'mse': nn.MSELoss(),
@@ -47,7 +47,7 @@ class BatchTrainer:
         total_loss = 0.0
         for batch in self.train_loader:
             train, obs = batch
-            self.optimiser.step(train=train, obs=obs)
+            self.optimiser.step(train=train, obs=obs)  # Batch training: update per batch
             total_loss += self.evaluate_single_batch(train, obs)
         return total_loss / len(self.train_loader)
 
@@ -69,14 +69,14 @@ class BatchTrainer:
         print(f'Test Loss: {test_loss}')
 
     def plot_train_graph(self, train_losses, val_losses):
-        # Plot training and validation loss
-        # plt.plot(train_losses, label='Train Loss')
-        # plt.plot(val_losses, label='Validation Loss')
-        # plt.xlabel('Epochs')
-        # plt.ylabel('Loss')
-        # plt.yscale('log')
-        # plt.legend()
-        # plt.show()
+        #Plot training and validation loss
+        plt.plot(train_losses, label='Train Loss')
+        plt.plot(val_losses, label='Validation Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.yscale('log')
+        plt.legend()
+        plt.show()
         pass
 
     def save_model(self, filename=None):
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     dataset_loader = OscillatoryDataLoader(batch_size=64, val_size=0.2)
     input_size = dataset_loader.train_dataset.X.shape[1]
     output_size = dataset_loader.train_dataset.y.shape[1]
-    model =  model_enkf = DNN(input_size=input_size, output_size=output_size)
+    model = DNN(input_size=input_size, output_size=output_size)
     model_train = BatchTrainer(model=model)
     model_train.load_data(dataset_loader)
     model_train.train(num_epochs=1000, is_plot_graph=0)

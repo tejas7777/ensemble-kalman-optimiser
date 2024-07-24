@@ -161,22 +161,7 @@ class EnKF:
             param.data.copy_(flat_params[idx:idx + num_elements].reshape(param.shape))
             idx += num_elements
 
-    # def __unflatten_parameters(self, flat_params):
-    #     params_list = []
-    #     start = 0
-    #     for shape in self.shapes:
-    #         num_elements = torch.prod(torch.tensor(shape)).item()
-    #         print(f"Unflattening {num_elements} elements into shape {shape}")
-    #         params_list.append(flat_params[start:start + num_elements].view(shape))
-    #         start += num_elements
-    #     return params_list
 
-    # def __update_model_parameters(self, flat_params):
-    #     idx = 0
-    #     for param in self.model.parameters():
-    #         num_elements = param.numel()
-    #         param.data.copy_(flat_params[idx:idx + num_elements].view(param.shape))
-    #         idx += num_elements
 
     def __misfit_gradient(self,thetha, train, d_obs, loss_type='mse'):
         loss_mapper = {
