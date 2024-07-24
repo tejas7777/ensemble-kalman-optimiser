@@ -7,6 +7,7 @@ import os
 from typing import Optional
 from data.dataloader.pde_loader import PDEDataLoader
 from model.fno import FNO
+import matplotlib as plt
 
 class ModelTrainer:
     def __init__(self, model, lr: float = 0.1, sigma: float = 0.01, k: int = 100, gamma: float = 0.1, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse'):
@@ -85,24 +86,23 @@ class ModelTrainer:
         print(f'Model saved to {save_path}')
 
 
-    if __name__ == '__main__':
+if __name__ == '__main__':
 
+    file_path = './dataset/pde_data_subset.pt'  # Update the path as needed
+    subset_size = 100  # Example subset size
+    batch_size = 32  # Example batch size
 
-        file_path = './dataset/pde_data_subset.pt'  # Update the path as needed
-        subset_size = 100  # Example subset size
-        batch_size = 32  # Example batch size
+    pde_data_loader = PDEDataLoader(file_path, subset_size=subset_size, batch_size=batch_size)
+    train_loader, val_loader, test_loader = pde_data_loader.get_loaders()
 
-        pde_data_loader = PDEDataLoader(file_path, subset_size=subset_size, batch_size=batch_size)
-        train_loader, val_loader, test_loader = pde_data_loader.get_loaders()
+    in_channels = 4260  # Input shape based on your data
+    out_channels = 14  # Output shape based on your data
+    modes = 12
+    width = 20
 
-        in_channels = 4260  # Input shape based on your data
-        out_channels = 14  # Output shape based on your data
-        modes = 12
-        width = 20
-
-        model = FNO(in_channels, out_channels, modes, width)
-        model_trainer = ModelTrainer(model=model, lr=0.001, max_iterations=10, loss_type='mse', debug_mode=True)
-        model_trainer.load_data(pde_data_loader)
-        model_trainer.train(num_epochs=100, is_plot_graph=1)
-        model_trainer.evaluate_test()
-        model_trainer.save_model()
+    model = FNO(in_channels, out_channels, modes, width)
+    model_trainer = ModelTrainer(model=model, lr=0.001, max_iterations=10, loss_type='mse', debug_mode=True)
+    model_trainer.load_data(pde_data_loader)
+    model_trainer.train(num_epochs=100, is_plot_graph=1)
+    model_trainer.evaluate_test()
+    model_trainer.save_model()
