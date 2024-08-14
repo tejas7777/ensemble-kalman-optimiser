@@ -11,7 +11,13 @@ class BatchTrainer:
     def __init__(self, model, lr=0.001, batch_size=32):
         self.model = model
         self.loss_function = nn.MSELoss()
-        self.optimiser = Adam(model.parameters(), lr=lr)
+        adam_params = {
+            'lr': 0.01, 
+            'betas': (0.9, 0.999),
+            'weight_decay': 0.0001,
+            'eps': 1e-05
+        }
+        self.optimiser = Adam(model.parameters(), **adam_params)
         self.batch_size = batch_size
 
     def load_data(self, dataset_loader):

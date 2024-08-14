@@ -12,8 +12,8 @@ class GANTrainer:
     def __init__(self, gan_model, lr:float =0.01, sigma:float =0.001, k:int = 10, gamma: float=1e-1, max_iterations: Optional[int]=1, loss_type: Optional[str]='mse', latent_dim=100):
         self.gan_model = gan_model
         self.latent_dim = latent_dim
-        self.generator_optim = EnKFGAN(gan_model.generator, 0.001, sigma, k, gamma, max_iterations, debug_mode=False)
-        self.discriminator_optim = EnKFGAN(gan_model.discriminator, 0.5, sigma, k, gamma, max_iterations, debug_mode=False)
+        self.generator_optim = EnKFGAN(gan_model.generator, 0.0001, sigma, k, gamma, max_iterations, debug_mode=False)
+        self.discriminator_optim = EnKFGAN(gan_model.discriminator, 0.05, sigma, 5, gamma, max_iterations, debug_mode=False)
         self.criterion = nn.BCELoss()
 
     def load_data(self, dataset_loader):
@@ -125,7 +125,7 @@ class GANTrainer:
         print("Loss plot saved as gan_losses.png")
 
 if __name__ == '__main__':
-    latent_dim = 100
+    latent_dim = 50
     gan_model = MNISTGAN(latent_dim)
     dataset_loader = MNISTDataLoader(batch_size=32)
 

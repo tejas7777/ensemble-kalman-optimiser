@@ -54,3 +54,19 @@ class OscillatoryDataLoader:
 
     def get_loaders(self):
         return self.train_loader, self.val_loader, self.test_loader
+    
+    def get_data_as_tensors(self):
+        """
+        Returns the training, validation, and test datasets as non-batched tensors.
+        Useful for legacy code that expects non-batched inputs.
+        """
+        X_train_tensor = torch.tensor(self.train_dataset.X, dtype=torch.float32)
+        y_train_tensor = torch.tensor(self.train_dataset.y, dtype=torch.float32).view(-1, 1)
+        
+        X_val_tensor = torch.tensor(self.val_dataset.X, dtype=torch.float32)
+        y_val_tensor = torch.tensor(self.val_dataset.y, dtype=torch.float32).view(-1, 1)
+        
+        X_test_tensor = torch.tensor(self.test_dataset.X, dtype=torch.float32)
+        y_test_tensor = torch.tensor(self.test_dataset.y, dtype=torch.float32).view(-1, 1)
+        
+        return (X_train_tensor, y_train_tensor), (X_val_tensor, y_val_tensor), (X_test_tensor, y_test_tensor)

@@ -1,5 +1,6 @@
 import torch
 import copy
+import numpy as np
 
 '''
 Inspired by the EKI algorithm provided in Haber et al, (https://arxiv.org/abs/1805.08034).
@@ -8,7 +9,7 @@ New Change
 '''
 
 class EnKF:
-    def __init__(self, model, lr=1e-3, sigma=0.1, k=10, gamma=1e-3, max_iterations=10, debug_mode=False, loss_type='mse'):
+    def __init__(self, model, lr=1e-3, sigma=0.1, k=10, gamma=1e-3, max_iterations=1, debug_mode=False, loss_type='mse'):
         self.model = model
         self.lr = lr
         self.sigma = sigma
@@ -101,71 +102,12 @@ class EnKF:
             self.theta -= self.lr * update  # Now both are [n]
 
             # Update the actual model parameters
-            self.__update_model_parameters(self.theta)
+            #self.__update_model_parameters(self.theta)
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : parameter update completed")
-               
-    # def step(self, train, obs):
-    #     for iteration in range(self.max_iterations):
-    #         if self.debug_mode:
-    #             print(f"iteration {iteration + 1} / {self.max_iterations} : Started")
 
-    #         self.Omega = torch.randn((self.theta.numel(), self.k)) * self.sigma
-    #         particles = self.theta.unsqueeze(1) + self.Omega
-    #         self.particles = particles
-
-    #         if self.debug_mode:
-    #             print(f"iteration {iteration + 1} / {self.max_iterations} : Drawing {self.k} Particles completed")
-
-    #         current_params_unflattened = self.__unflatten_parameters(self.theta)
-    #         with torch.no_grad():
-    #             F_current = self.__F(train, current_params_unflattened)
-
-    #         m, c, d = F_current.size()  # Batch size, number of classes, sequence length
-    #         Q = torch.zeros(m, c, d, self.k)  # [batch_size, num_classes, seq_len, k]
-
-    #         for i in range(self.k):
-    #             perturbed_params = particles[:, i]
-    #             perturbed_params_unflattened = self.__unflatten_parameters(perturbed_params)
-
-    #             with torch.no_grad():
-    #                 F_perturbed = self.__F(train, perturbed_params_unflattened)
-
-    #             Q[:, :, :, i] = F_perturbed - F_current
-
-    #         if self.debug_mode:
-    #             print(f"iteration {iteration + 1} / {self.max_iterations} : forward model evaluation complete")
-
-    #         Q = Q.view(m * c * d, self.k)  # Reshape Q to [mcd, k]
-    #         H_j = Q.T @ Q + self.gamma * torch.eye(self.k)
-    #         H_inv = torch.inverse(H_j)
-
-    #         if self.debug_mode:
-    #             print(f"iteration {iteration + 1} / {self.max_iterations} : Hj and Hj inverse completed")
-
-    #         gradient = self.__misfit_gradient(self.theta, train, obs, loss_type=self.loss_type)
-    #         gradient = gradient.view(-1, 1)
-
-    #         if self.debug_mode:
-    #             print(f"iteration {iteration + 1} / {self.max_iterations} : gradient calculation completed")
-
-    #         adjustment = H_inv @ Q.T
-    #         self.Omega = self.Omega.to(self.device)
-    #         adjustment = adjustment.to(self.device)
-    #         gradient = gradient.to(self.device)
-    #         intermediate_result = adjustment @ gradient
-    #         update = self.Omega @ intermediate_result
-    #         update = update.view(-1)
-
-    #         self.theta -= self.lr * update
-
-    #         self.__update_model_parameters(self.theta)
-
-    #         if self.debug_mode:
-    #             print(f"iteration {iteration + 1} / {self.max_iterations} : parameter update completed")
-
-        '''
+            '''
     Forward Model
     Input: Parameters of the model
     Output: Predictions of the Shape [M_Out, Batch_Size]
@@ -225,7 +167,8 @@ class EnKF:
     def __misfit_gradient(self,thetha, train, d_obs, loss_type='mse'):
         loss_mapper = {
             'mse': self.__mse_gradient,
-            'cross_entropy': self.__cross_entropy_gradient
+            'cross_entropy': self.__cross_entropy_gradient,
+            'cross_entropy_kl': self.__cross_entropy_kl_gradient
         }
 
         return loss_mapper[loss_type](thetha, train, d_obs)
@@ -252,6 +195,46 @@ class EnKF:
         grad =  - d_obs / (predictions + delta)
         
         return grad.view(-1, 1)
+    
+    def __cross_entropy_kl_gradient(self, theta, train, d_obs, delta=1e-10, kl_weight=0.01):
+        # Unflatten parameters
+        params_unflattened = self.__unflatten_parameters(theta)
+        
+        # Forward pass
+        predictions = self.__F(train, params_unflattened)
+        num_classes = predictions.shape[1]
+        d_obs = torch.nn.functional.one_hot(d_obs, num_classes=num_classes).float()
+        
+        # Compute gradient of cross-entropy loss with respect to predictions
+        ce_grad = - d_obs / (predictions + delta)
+        
+        # Compute KL divergence
+        kl_grad = torch.zeros_like(theta)
+        for i, (param, shape) in enumerate(zip(params_unflattened, self.shapes)):
+            # Assuming a standard normal prior
+            mu = param[:shape[0]//2]
+            log_var = param[shape[0]//2:]
+            
+            # Compute KL divergence
+            kl = 0.5 * torch.sum(mu.pow(2) + log_var.exp() - log_var - 1)
+            
+            # Compute KL gradient manually
+            mu_grad = mu
+            log_var_grad = 0.5 * (log_var.exp() - 1)
+            
+            kl_grad[self.cumulative_sizes[i]:self.cumulative_sizes[i+1]] = torch.cat([mu_grad, log_var_grad]).view(-1)
+        
+        # Reshape ce_grad to match the parameter space
+        ce_grad_reshaped = torch.zeros_like(theta)
+        ce_grad_flattened = ce_grad.view(-1)
+        ce_grad_reshaped[:ce_grad_flattened.size(0)] = ce_grad_flattened
+        
+        # Combine gradients
+        total_grad = ce_grad_reshaped + kl_weight * kl_grad
+        
+        return total_grad.view(-1, 1)
+
+
 
 
     def __simple_line_search(self, update, initial_lr,train, obs, reduction_factor=0.5, max_reductions=5):

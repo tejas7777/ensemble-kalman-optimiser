@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional
 
 class BatchTrainer:
-    def __init__(self, model, lr:float =0.5, sigma:float =0.01, k:int =100, gamma: float=1e-4, max_iterations: Optional[int]=1, loss_type: Optional[str]='mse', online_learning:Optional[bool] = False):
+    def __init__(self, model, lr:float =0.5, sigma:float =0.01, k:int =100, gamma: float=1e-1, max_iterations: Optional[int]=1, loss_type: Optional[str]='mse', online_learning:Optional[bool] = False):
         self.model = model
         self.loss_function_mapper ={
             'mse': nn.MSELoss(),

@@ -2,24 +2,22 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from optimiser.enkf import EnKF
-from model.dnn import DNN, DenoisingAutoencoder
-from data.dataloader.regression_loader import OscillatoryDataLoader
+from model.bnn import BNNClassification
+from data.dataloader.iris_dataloader import IrisDataLoader
 import pandas as pd
 import os
 from datetime import datetime
 from typing import Optional
-from visualisation.plotter import Plotter
 
-class BatchTrainer:
-    def __init__(self, model, lr:float =0.1, sigma:float =0.01, k:int =100, gamma: float=1e-3, max_iterations: Optional[int]=1, loss_type: Optional[str]='mse', online_learning:Optional[bool] = False):
+class BNNClassificationTrainer:
+    def __init__(self, model, lr: float = 0.1, sigma: float = 0.001, k: int = 100, gamma: float = 1e-1, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'cross_entropy', online_learning: Optional[bool] = False):
         self.model = model
-        self.loss_function_mapper ={
+        self.loss_function_mapper = {
             'mse': nn.MSELoss(),
             'cross_entropy': nn.CrossEntropyLoss()
         }
         self.loss_function = self.loss_function_mapper[loss_type]
-        self.optimiser = EnKF(model, lr, sigma, k, gamma, max_iterations=max_iterations, debug_mode=False,loss_type=loss_type)
-        self.plotter = Plotter()
+        self.optimiser = EnKF(model, lr, sigma, k, gamma, max_iterations=max_iterations, debug_mode=False, loss_type=loss_type)
 
     def load_data(self, dataset_loader):
         self.train_loader, self.val_loader, self.test_loader = dataset_loader.get_loaders()
@@ -39,16 +37,7 @@ class BatchTrainer:
             print(f'Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}')
 
         if is_plot_graph:
-            self.plotter.plot_train_graph(
-                (train_losses, "Train Loss"), 
-                (val_losses, "Validation Loss"),
-                log_scale=True, 
-                xlabel='Epochs', 
-                ylabel='Loss', 
-                title='Training and Validation Loss',
-                legend=True, 
-                save_path=None
-            )
+            self.plot_train_graph(train_losses, val_losses)
 
         self.train_loss = train_losses
         self.val_loss = val_losses
@@ -99,12 +88,12 @@ class BatchTrainer:
         print(f'Complete model saved to {save_path}')
 
 if __name__ == '__main__':
-    #dataset_loader = OscillatoryDataLoader(test_size=0.3, val_size=0.3, batch_size=100)
-    dataset_loader = OscillatoryDataLoader(batch_size=100, val_size=0.2)
-    input_size = dataset_loader.train_dataset.X.shape[1]
-    output_size = dataset_loader.train_dataset.y.shape[1]
-    model = DNN(input_size=input_size, output_size=output_size)
-    model_train = BatchTrainer(model=model)
+    dataset_loader = IrisDataLoader(num_features=2, batch_size=32)
+    input_size = dataset_loader.get_feature_dim()
+    output_size = 3  # Number of classes in Iris dataset
+    hidden_layers = [20, 20]  # Example hidden layers, adjust as needed
+    model = BNNClassification(input_size=input_size, hidden_layers=hidden_layers, output_size=output_size, activation=nn.ReLU)
+    model_train = BNNClassificationTrainer(model=model)
     model_train.load_data(dataset_loader)
     model_train.train(num_epochs=100, is_plot_graph=1)
     model_train.evaluate_test()

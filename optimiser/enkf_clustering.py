@@ -1,5 +1,6 @@
 import torch
 import copy
+import numpy as np
 
 '''
 Inspired by the EKI algorithm provided in Haber et al, (https://arxiv.org/abs/1805.08034).
@@ -7,8 +8,8 @@ Modified to produce forward model on the entire batch
 New Change
 '''
 
-class EnKFGAN:
-    def __init__(self, model, lr=1e-3, sigma=0.1, k=10, gamma=1e-3, max_iterations=1, debug_mode=False, loss_type='cross_entropy'):
+class EnKF:
+    def __init__(self, model, lr=1e-3, sigma=0.1, k=10, gamma=1e-3, max_iterations=1, debug_mode=False, loss_type='mse'):
         self.model = model
         self.lr = lr
         self.sigma = sigma
@@ -30,26 +31,29 @@ class EnKFGAN:
     '''
     def step(self, train, obs):
         for iteration in range(self.max_iterations):
+
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : Started")
 
-            # Step [1] Draw K Particles
-            self.Omega = torch.randn((self.theta.numel(), self.k)) * self.sigma
-            particles = self.theta.unsqueeze(1) + self.Omega
-            self.particles = particles
+            '''
+            Step [1] We will Draw K Particles
+            '''
+            self.Omega = torch.randn((self.theta.numel(), self.k)) * self.sigma  # Draw particles
+            particles = self.theta.unsqueeze(1) + self.Omega  # Add the noise to the current parameter estimate
+            self.particles = particles #This is for retieving
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : Drawing {self.k} Particles completed")
 
-            # Step [2] Evaluate the forward model using theta mean
+            '''
+            Step [2] Now we Evaluate the forward model using theta mean
+            '''
             current_params_unflattened = self.__unflatten_parameters(self.theta)
             with torch.no_grad():
                 F_current = self.__F(train, current_params_unflattened)
-
-            # Flatten output for consistent handling
-            F_current_flat = F_current.view(F_current.size(0), -1)
-            
-            Q = torch.zeros(F_current_flat.size(0), F_current_flat.size(1), self.k)
+            #print(F_current.shape)
+            m, c = F_current.size()  # Batch size and number of classes
+            Q = torch.zeros(m, c, self.k)  # [batch_size, num_classes, k]
                 
             for i in range(self.k):
                 perturbed_params = particles[:, i]
@@ -59,40 +63,43 @@ class EnKFGAN:
                 with torch.no_grad():
                     F_perturbed = self.__F(train, perturbed_params_unflattened)
 
-                # Flatten perturbed output
-                F_perturbed_flat = F_perturbed.view(F_perturbed.size(0), -1)
-
                 # Compute the difference
-                Q[:, :, i] = F_perturbed_flat - F_current_flat
+                Q[:, :, i] = F_perturbed - F_current
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : forward model evaluation complete")
 
-            # Step [3] Construct the Hessian Matrix
-            Q = Q.view(-1, self.k)
+            '''
+            Step [3] Now we can construct the Hessian Matrix  Hj = Qj(transpose) x Qj + Γ
+            '''
+            Q = Q.view(m * c, self.k)  #Reshape Q to [mc, k]
             H_j = Q.T @ Q + self.gamma * torch.eye(self.k)
             H_inv = torch.inverse(H_j)
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : Hj and Hj inverse completed")
 
-            # Step [4] Calculate the Gradient of loss function
+            '''
+            Step [4] Calculate the Gradient of loss function with respect to the current parameters
+            '''
             gradient = self.__misfit_gradient(self.theta, train, obs, loss_type=self.loss_type)
-            gradient = gradient.view(-1, 1)
+            gradient = gradient.view(-1, 1)  # Ensure it's a column vector
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : gradient calculation completed")
 
-            # Step [5] Update the parameters
-            adjustment = H_inv @ Q.T
+            '''
+            Step [5] Update the parameters
+            '''
+            adjustment = H_inv @ Q.T  #Shape [k, mc]
             self.Omega = self.Omega.to(self.device)
             adjustment = adjustment.to(self.device)
             gradient = gradient.to(self.device)
-            intermediate_result = adjustment @ gradient
-            update = self.Omega @ intermediate_result
-            update = update.view(-1)
+            intermediate_result = adjustment @ gradient  # Shape [k, 1]
+            update = self.Omega @ intermediate_result  # Shape [n, 1]
+            update = update.view(-1)  # Reshape to [n]
 
-            self.theta -= self.lr * update
+            self.theta -= self.lr * update  # Now both are [n]
 
             # Update the actual model parameters
             self.__update_model_parameters(self.theta)
@@ -100,17 +107,20 @@ class EnKFGAN:
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : parameter update completed")
 
-        '''
+            '''
     Forward Model
     Input: Parameters of the model
     Output: Predictions of the Shape [M_Out, Batch_Size]
     '''
     def __F(self, train, parameters):
-        with torch.no_grad(): 
+        with torch.no_grad():
             for original_param, new_param in zip(self.model.parameters(), parameters):
-                original_param.data.copy_(new_param.data)
+                if original_param.shape == new_param.shape:
+                    original_param.data.copy_(new_param.data)
+                else:
+                    print(f"Skipping parameter update due to shape mismatch: {original_param.shape} vs {new_param.shape}")
 
-            output =  self.model(train)
+            output, _ = self.model(train)
             return output
 
     '''
@@ -160,48 +170,74 @@ class EnKFGAN:
     def __misfit_gradient(self,thetha, train, d_obs, loss_type='mse'):
         loss_mapper = {
             'mse': self.__mse_gradient,
-            'cross_entropy': self.__cross_entropy_gradient
+            'cross_entropy': self.__cross_entropy_gradient,
+            'cross_entropy_kl': self.__cross_entropy_kl_gradient
         }
 
         return loss_mapper[loss_type](thetha, train, d_obs)
     
-    def __mse_gradient(self, theta, train, d_obs):
-        # Forward pass to get model outputs
-        t = self.__F(train, self.__unflatten_parameters(theta))
+    def __mse_gradient(self,thetha, train, d_obs):
+        #Forward pass to get model outputs
+        t = self.__F(train, self.__unflatten_parameters(thetha))
         
-        # Ensure t and d_obs have the same shape
-        t_flat = t.view(t.size(0), -1)
-        d_obs_flat = d_obs.view(d_obs.size(0), -1)
-        
-        # Compute residuals
-        residuals = t_flat - d_obs_flat
-        
-        # Compute gradient
-        gradient = residuals  # MSE gradient
-        
-        return gradient.view(-1, 1)
+        #compute simple residuals
+        residuals = t - d_obs
+
+        return residuals.view(-1, 1)
     
-    def __cross_entropy_gradient(self, theta, train, d_obs, eps=1e-8):
+    def __cross_entropy_gradient(self, theta, train, d_obs, delta=1e-10):
+        # Unflatten parameters
         params_unflattened = self.__unflatten_parameters(theta)
         
+        # Forward pass
         predictions = self.__F(train, params_unflattened)
-        #print(f"Predictions shape: {predictions.shape}")
-        #print(f"d_obs shape: {d_obs.shape}")
+        num_classes = predictions.shape[1]
+        d_obs = torch.nn.functional.one_hot(d_obs, num_classes=num_classes).float()
         
-        predictions = predictions.view(predictions.size(0), -1)
-        #print(f"Reshaped predictions shape: {predictions.shape}")
-        
-        predictions = torch.sigmoid(predictions)  # Apply sigmoid here
-        predictions = torch.clamp(predictions, eps, 1 - eps)
-        
-        d_obs = d_obs.view(predictions.size(0), -1)
-        #print(f"Reshaped d_obs shape: {d_obs.shape}")
-        
-        grad =  - d_obs / (predictions + eps)
-
-        #grad = predictions - d_obs #/ (predictions * (1 - predictions) + eps)
+        # Compute gradient of cross-entropy loss with respect to predictions
+        grad =  - d_obs / (predictions + delta)
         
         return grad.view(-1, 1)
+    
+    def __cross_entropy_kl_gradient(self, theta, train, d_obs, delta=1e-10, kl_weight=0.01):
+        # Unflatten parameters
+        params_unflattened = self.__unflatten_parameters(theta)
+        
+        # Forward pass
+        predictions = self.__F(train, params_unflattened)
+        num_classes = predictions.shape[1]
+        d_obs = torch.nn.functional.one_hot(d_obs, num_classes=num_classes).float()
+        
+        # Compute gradient of cross-entropy loss with respect to predictions
+        ce_grad = - d_obs / (predictions + delta)
+        
+        # Compute KL divergence
+        kl_grad = torch.zeros_like(theta)
+        for i, (param, shape) in enumerate(zip(params_unflattened, self.shapes)):
+            # Assuming a standard normal prior
+            mu = param[:shape[0]//2]
+            log_var = param[shape[0]//2:]
+            
+            # Compute KL divergence
+            kl = 0.5 * torch.sum(mu.pow(2) + log_var.exp() - log_var - 1)
+            
+            # Compute KL gradient manually
+            mu_grad = mu
+            log_var_grad = 0.5 * (log_var.exp() - 1)
+            
+            kl_grad[self.cumulative_sizes[i]:self.cumulative_sizes[i+1]] = torch.cat([mu_grad, log_var_grad]).view(-1)
+        
+        # Reshape ce_grad to match the parameter space
+        ce_grad_reshaped = torch.zeros_like(theta)
+        ce_grad_flattened = ce_grad.view(-1)
+        ce_grad_reshaped[:ce_grad_flattened.size(0)] = ce_grad_flattened
+        
+        # Combine gradients
+        total_grad = ce_grad_reshaped + kl_weight * kl_grad
+        
+        return total_grad.view(-1, 1)
+
+
 
 
     def __simple_line_search(self, update, initial_lr,train, obs, reduction_factor=0.5, max_reductions=5):
