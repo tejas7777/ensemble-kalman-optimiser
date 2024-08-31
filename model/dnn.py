@@ -16,6 +16,13 @@ class DNN(nn.Module):
         x = self.fc3(x)
         return x
     
+    def initialize_weights(self):
+        for layer in self.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.kaiming_normal_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.constant_(layer.bias, 0)
+    
 class DNNLarge(nn.Module):
     def __init__(self, input_size, output_size):
         super(DNNLarge, self).__init__()
@@ -76,7 +83,7 @@ class DiabetesDataDNN(nn.Module):
     
 class DNNClassification(nn.Module):
     def __init__(self, input_size, output_size):
-        super(DNN, self).__init__()
+        super(DNNClassification, self).__init__()
         self.fc1 = nn.Linear(input_size, 50)
         self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(50, 30)
@@ -92,6 +99,61 @@ class DNNClassification(nn.Module):
         x = self.fc3(x)
         x = self.softmax(x)
         return x
+
+class DenoisingAutoencoder(nn.Module):
+    def __init__(self, channels=1, latent_dim=128):
+        super(DenoisingAutoencoder, self).__init__()
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Conv2d(channels, 32, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(128, latent_dim, kernel_size=3, padding=1),
+            nn.ReLU(True)
+        )
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.Conv2d(latent_dim, 128, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(128, 64, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(32, channels, kernel_size=3, padding=1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
+
+
+class MNIST_CNN(nn.Module):
+    def __init__(self):
+        super(MNIST_CNN, self).__init__()
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.fc1 = nn.Linear(64 * 3 * 3, 128)
+        self.fc2 = nn.Linear(128, 10)
+        
+    def forward(self, x):
+        x = nn.functional.relu(self.conv1(x))
+        x = nn.functional.max_pool2d(x, 2)
+        x = nn.functional.relu(self.conv2(x))
+        x = nn.functional.max_pool2d(x, 2)
+        x = nn.functional.relu(self.conv3(x))
+        x = nn.functional.max_pool2d(x, 2)
+        x = x.view(-1, 64 * 3 * 3)
+        x = nn.functional.relu(self.fc1(x))
+        x = self.fc2(x)
+        return nn.functional.log_softmax(x, dim=1)
+    
+
 
 class DenoisingAutoencoder(nn.Module):
     def __init__(self, channels=1, latent_dim=128):

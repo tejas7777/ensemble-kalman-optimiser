@@ -13,7 +13,7 @@ class EnKFOptimizerIterative:
         self.shapes = [p.shape for p in self.parameters]  # For keeping track of original shapes
         self.debug_mode = debug_mode
         self.particles = None
-        self.h0 = 8
+        self.h0 = 5
         self.epsilon = 1e-10
 
     def flatten_parameters(self, parameters):

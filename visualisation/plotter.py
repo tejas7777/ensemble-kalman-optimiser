@@ -83,57 +83,60 @@ class Plotter:
         plt.close()
 
 
-    def plot_train_validation_benchmark(self, loss_data, log_scale=True, xlabel='Epochs', ylabel='Loss', title=None, save_path=None):
+    def plot_accuracy_loss_comparison(self, accuracy_loss_data, xlabel='Epochs', ylabel_acc='Accuracy (%)', ylabel_loss='Loss', title_acc='Accuracy Comparison', title_loss='Loss Comparison', save_path_acc=None, save_path_loss=None):
+        # Plot Accuracy Comparison
         plt.figure(figsize=self.figsize)
-
-        # Create a color cycler
+        
         color_cycler = cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
 
-        for train_loss, val_loss, label in loss_data:
+        for train_acc, val_acc, _, _, label in accuracy_loss_data:
             color = next(color_cycler)
-            plt.plot(train_loss, linestyle='--', color=color, linewidth=self.linewidth, label=f'Training Loss ({label})')
-            plt.plot(val_loss, linestyle='-', color=color, linewidth=self.linewidth, label=f'Validation Loss ({label})')
-
-        if log_scale:
-            plt.yscale('log')
-
+            
+            plt.plot(train_acc, linestyle='--', color=color, label=f'{label} Train Accuracy', linewidth=self.linewidth)
+            plt.plot(val_acc, linestyle='-', color=color, label=f'{label} Validation Accuracy', linewidth=self.linewidth)
+        
         plt.xlabel(xlabel, fontsize=self.fontsize)
-        plt.ylabel(ylabel, fontsize=self.fontsize)
-        if title:
-            plt.title(title, fontsize=self.fontsize)
-        plt.legend(fontsize=self.fontsize - 2)
+        plt.ylabel(ylabel_acc, fontsize=self.fontsize)
+        plt.title(title_acc, fontsize=self.fontsize)
+        plt.legend(fontsize=self.fontsize - 2, loc='upper right')
+        plt.grid(True)
         plt.tight_layout()
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if save_path_acc:
+            plt.savefig(save_path_acc, dpi=300, bbox_inches='tight')
         else:
             plt.show()
 
         plt.close()
 
-    def plot_loss_difference_benchmark(self, loss_data, xlabel='Epochs', ylabel='Difference (Train - Validation)', log_scale = True, title=None, save_path=None):
+        # Plot Loss Comparison
         plt.figure(figsize=self.figsize)
+        
+        color_cycler = cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
 
-        for train_loss, val_loss, label in loss_data:
-            loss_diff = [train - val for train, val in zip(train_loss, val_loss)]
-            plt.plot(loss_diff, label=f'Loss Difference ({label})', linewidth=self.linewidth)
-
-        if log_scale:
-            plt.yscale('log')
-
+        for _, _, train_loss, val_loss, label in accuracy_loss_data:
+            color = next(color_cycler)
+            
+            plt.plot(train_loss, linestyle='-', color=color, label=f'{label} Train Loss', linewidth=self.linewidth)
+            plt.plot(val_loss, linestyle=':', color=color, label=f'{label} Validation Loss', linewidth=self.linewidth)
+        
         plt.xlabel(xlabel, fontsize=self.fontsize)
-        plt.ylabel(ylabel, fontsize=self.fontsize)
-        if title:
-            plt.title(title, fontsize=self.fontsize)
-        plt.legend(fontsize=self.fontsize - 2)
+        plt.ylabel(ylabel_loss, fontsize=self.fontsize)
+        plt.title(title_loss, fontsize=self.fontsize)
+        plt.legend(fontsize=self.fontsize - 2, loc='upper right')
+        plt.grid(True)
         plt.tight_layout()
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if save_path_loss:
+            plt.savefig(save_path_loss, dpi=300, bbox_inches='tight')
         else:
             plt.show()
 
         plt.close()
+
+
+
+
 
     def plot_loss_landscape(self, alphas, losses, xlabel='Alpha', ylabel='Loss', title='Loss Landscape via Linear Interpolation', save_path=None):
         plt.figure(figsize=self.figsize)

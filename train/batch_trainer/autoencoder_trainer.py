@@ -1,13 +1,9 @@
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
-from optimiser.enkf import EnKF
-from model.dnn import DNN, DenoisingAutoencoder
-from data.dataloader.regression_loader import OscillatoryDataLoader
-from data.dataloader.saddle_point_dataset_loader import SaddlePointDataLoader
-from data.dataloader.ackley_function_dataset_loader import AckleyFunctionDataLoader
-from data.dataloader.greiwank_function_dataset_loader import GriewankFunctionDataLoader
-from data.dataloader.michalewicz_function_dataset_loader import MichalewiczFunctionDataLoader
+from optimiser.enkf_cnn import EnKFCNN
+from model.dnn import DenoisingAutoencoder
+from data.dataloader.noisy_mnist import NoisyMNISTDataLoader
 import pandas as pd
 import os
 from datetime import datetime
@@ -16,14 +12,14 @@ from visualisation.plotter import Plotter
 from itertools import product
 
 class BatchTrainer:
-    def __init__(self, model, lr:float =0.31, sigma:float =0.01, k:int =200, gamma: float=1e-1, max_iterations: Optional[int]=1, loss_type: Optional[str]='mse', online_learning:Optional[bool] = False):
+    def __init__(self, model, lr:float =0.1, sigma:float =0.01, k:int =50, gamma: float=1e-1, max_iterations: Optional[int]=1, loss_type: Optional[str]='mse', online_learning:Optional[bool] = False):
         self.model = model
         self.loss_function_mapper ={
             'mse': nn.MSELoss(),
             'cross_entropy': nn.CrossEntropyLoss()
         }
         self.loss_function = self.loss_function_mapper[loss_type]
-        self.optimiser = EnKF(model, lr, sigma, k, gamma, max_iterations=max_iterations, debug_mode=False,loss_type=loss_type)
+        self.optimiser = EnKFCNN(model, lr, sigma, k, gamma, max_iterations=max_iterations, debug_mode=False,loss_type=loss_type)
         self.plotter = Plotter()
 
     def load_data(self, dataset_loader):
@@ -173,15 +169,16 @@ class BatchTrainer:
 
 
 if __name__ == '__main__':
-    #dataset_loader = OscillatoryDataLoader(test_size=0.3, val_size=0.3, batch_size=100)
-    #dataset_loader = OscillatoryDataLoader(batch_size=100, val_size=0.2)
-    #dataset_loader = SaddlePointDataLoader(num_samples=10000, noise_level=0.1, val_size=0.2, test_size=0.2, batch_size=1000000)
-    #dataset_loader = AckleyFunctionDataLoader(num_samples=10000, dimension=100, noise_level=0.9, batch_size=10000000)
-    #dataset_loader = GriewankFunctionDataLoader(num_samples=10000, dimension=10, noise_level=0.9, batch_size=10000000)
-    dataset_loader = MichalewiczFunctionDataLoader(num_samples=10000, dimension=10, m=10, noise_level=0.1, batch_size=10000)
-    input_size = dataset_loader.train_dataset.X.shape[1]
-    output_size = dataset_loader.train_dataset.y.shape[1]
-    model = DNN(input_size=input_size, output_size=output_size)
+    #Initialise Dataloader
+    dataset_loader = NoisyMNISTDataLoader(
+        subset_size=500, 
+        set_standardize=False, 
+        test_size=0.2, 
+        val_size=0.2, 
+        batch_size=1000
+    )
+
+    model = DenoisingAutoencoder()
     model_train = BatchTrainer(model=model)
     model_train.load_data(dataset_loader)
     param_grid = {

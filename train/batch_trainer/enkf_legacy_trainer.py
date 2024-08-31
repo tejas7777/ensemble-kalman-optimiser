@@ -11,11 +11,11 @@ from data.dataloader.regression_loader import OscillatoryDataLoader
 from model.dnn import DNN
 
 class ModelTrainer:
-    def __init__(self, model, sigma: float = 0.0001, J: int = 50, gamma: float = 1e-3, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse'):
+    def __init__(self, model, sigma: float = 0.001, J: int = 50, gamma: float = 1e-1, max_iterations: Optional[int] = 1, loss_type: Optional[str] = 'mse'):
         self.model = model
         self.loss_function = nn.MSELoss()
-        self.optimiser = EnKFOptimizerIterative(model, sigma=sigma, J=J, gamma=gamma, max_iterations=max_iterations, debug_mode=False)
-        #self.optimiser = EnKFOriginal(model, k=J)
+        #self.optimiser = EnKFOptimizerIterative(model, sigma=sigma, J=J, gamma=gamma, max_iterations=max_iterations, debug_mode=False)
+        self.optimiser = EnKFOriginal(model, k=J)
         self.plotter = Plotter()
 
     def load_data(self, dataset_loader):
@@ -82,6 +82,6 @@ if __name__ == '__main__':
     model = DNN(input_size=input_size, output_size=output_size)
     model_train = ModelTrainer(model=model)
     model_train.load_data(dataset_loader)
-    model_train.train(num_epochs=25, is_plot_graph=1)
+    model_train.train(num_epochs=100, is_plot_graph=1)
     model_train.evaluate_test()
     model_train.save_model()

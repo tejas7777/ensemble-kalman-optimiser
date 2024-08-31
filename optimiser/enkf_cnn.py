@@ -8,7 +8,7 @@ Modified to produce forward model on the entire batch
 New Change
 '''
 
-class EnKF:
+class EnKFCNN:
     def __init__(self, model, lr=1e-3, sigma=0.1, k=10, gamma=1e-3, max_iterations=1, debug_mode=False, loss_type='mse'):
         self.model = model
         self.lr = lr
@@ -53,8 +53,10 @@ class EnKF:
             with torch.no_grad():
                 F_current = self.__F(train, current_params_unflattened)
 
-            m, c = F_current.size()  # Batch size and number of classes
-            Q = torch.zeros(m, c, self.k)  # [batch_size, num_classes, k]
+
+            batch_size, channels, height, width = F_current.size()  # [batch_size, channels, height, width]
+            n_out = channels * height * width  # Total number of features per sample
+            Q = torch.zeros(batch_size, n_out, self.k)  # [batch_size, n_out, k]
                 
             for i in range(self.k):
                 perturbed_params = particles[:, i]
@@ -64,8 +66,9 @@ class EnKF:
                 with torch.no_grad():
                     F_perturbed = self.__F(train, perturbed_params_unflattened)
 
-                # Compute the difference
-                Q[:, :, i] = F_perturbed - F_current
+                F_perturbed_flat = F_perturbed.view(batch_size, -1)  # Flatten to [batch_size, n_out]
+                F_current_flat = F_current.view(batch_size, -1)  # Flatten to [batch_size, n_out]
+                Q[:, :, i] = F_perturbed_flat - F_current_flat
 
             if self.debug_mode:
                 print(f"iteration {iteration + 1} / {self.max_iterations} : forward model evaluation complete")
@@ -73,7 +76,7 @@ class EnKF:
             '''
             Step [3] Now we can construct the Hessian Matrix  Hj = Qj(transpose) x Qj + Γ
             '''
-            Q = Q.view(m * c, self.k)  #Reshape Q to [mc, k]
+            Q = Q.view(batch_size * n_out, self.k)  #Reshape Q to [mc, k]
             H_j = Q.T @ Q + self.gamma * torch.eye(self.k)
             H_inv = torch.inverse(H_j)
 

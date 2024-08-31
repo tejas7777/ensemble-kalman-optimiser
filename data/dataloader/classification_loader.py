@@ -54,6 +54,12 @@ class ClassificationDataLoader:
 
     def get_loaders(self):
         return self.train_loader, self.val_loader, self.test_loader
+    
+    def get_feature_dim(self):
+        input_dim = self.X.shape[1]  # Number of features
+        output_dim = len(torch.unique(torch.tensor(self.y)))  # Number of unique classes
+        return input_dim, output_dim
+
 
 # Example usage:
 if __name__ == '__main__':
